@@ -6,7 +6,7 @@ from typing import Any
 from nicegui import ui
 
 
-BREAKDOWN_COLORS = ["#4f46e5", "#0891b2", "#16a34a", "#f59e0b", "#e11d48", "#64748b"]
+BREAKDOWN_COLORS = ["#3B82F6", "#0891b2", "#16a34a", "#f59e0b", "#e11d48", "#64748b"]
 
 
 def _money(cents: Any) -> str:

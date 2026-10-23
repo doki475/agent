@@ -52,16 +52,113 @@ async def chat_page(conversation_id: Optional[str] = None) -> None:
     if not user:
         return
 
+    # 统一主题色（Quasar 组件：按钮、链接、输入框等）
+    ui.colors(primary="#3B82F6")
     ui.add_head_html("""
     <style>
-      body { background:#f8fafc; }
+      :root{
+        --tpa-primary:#3B82F6;
+        --tpa-primary-dark:#1D4ED8;
+        --tpa-primary-soft:#EFF6FF;
+        --tpa-bg:#F7F7F5;
+        --tpa-border:#E5E5E5;
+      }
+      /* 右侧主区域整条链强制浅灰，防止任何父级写死白底 */
+      body,
+      .q-page,
+      .nicegui-content,
+      .chat-main { background-color:#F7F7F5 !important; }
+      .chat-scroll,
+      .chat-scroll .q-scrollarea__container,
+      .chat-scroll .q-scrollarea__content { background-color:transparent !important; }
       .chat-scroll { scrollbar-width:thin; }
+      .chat-header { background:#FFFFFF; border-bottom:1px solid var(--tpa-border); }
+      /* 底部区域透明，只让输入框本身白 */
+      .chat-composer { background-color:transparent !important; box-shadow:none; border-top:1px solid #E5E5E5; }
       .message-input textarea { min-height:64px; }
+
+      /* 左侧栏：纯白 + 细右边框 */
+      .q-drawer--left { background-color:#FFFFFF !important; border-right:1px solid #E5E5E5; }
+
+      /* ---- 消息卡片 ---- */
+      .message-card-ai{
+        background:transparent !important; border:none !important; border-radius:16px; box-shadow:none !important;
+      }
+      .message-card-user{
+        background:#F0F0EB; color:#111111; border:none; border-radius:16px; box-shadow:none;
+      }
+
+      /* ---- 正文排版 ---- */
+      .message-markdown{ color:#1F2937; line-height:1.75; font-size:.95rem; }
+      .message-markdown > :first-child{ margin-top:0; }
+      .message-markdown > :last-child{ margin-bottom:0; }
+      .message-markdown p{ margin:.6em 0; }
+      .message-markdown h1,.message-markdown h2{
+        color:var(--tpa-primary-dark); border-left:4px solid var(--tpa-primary);
+        padding-left:12px; font-weight:700; line-height:1.35; margin:1.4em 0 .7em;
+      }
+      .message-markdown h1{ font-size:1.45rem; }
+      .message-markdown h2{ font-size:1.3rem; }
+      .message-markdown h3{ color:#0F172A; font-weight:600; margin:1.2em 0 .5em; }
+      .message-markdown strong{ color:#0F172A; font-weight:600; }
+      .message-markdown a{ color:var(--tpa-primary-dark); text-decoration:underline; text-underline-offset:2px; }
+      .message-markdown blockquote{
+        margin:.8em 0; padding:.55em .9em; background:#F8FAFC;
+        border-left:3px solid #BFDBFE; border-radius:0 8px 8px 0; color:#475569;
+      }
+      .message-markdown ul,.message-markdown ol{ padding-left:1.4em; margin:.6em 0; }
+      .message-markdown li{ margin:.25em 0; }
+      .message-markdown code{ background:#F1F5F9; padding:1px 5px; border-radius:5px; font-size:.85em; }
+
+      /* ---- 表格：主题色表头 + 斑马线 ---- */
+      .message-markdown table{
+        width:100%; max-width:100%; border-collapse:separate; border-spacing:0;
+        margin:.9em 0 1.2em; font-size:.9rem;
+        border:1px solid var(--tpa-border); border-radius:12px; overflow:hidden;
+      }
+      .message-markdown thead th{
+        background:var(--tpa-primary-soft); color:#1E3A8A; font-weight:600;
+        text-align:left; padding:10px 14px; border-bottom:1px solid #DBEAFE; white-space:nowrap;
+      }
+      .message-markdown tbody td{ padding:10px 14px; border-bottom:1px solid #F1F5F9; vertical-align:top; }
+      .message-markdown tbody td:first-child{ white-space:nowrap; }
+      .message-markdown tbody tr:nth-child(even){ background:#F9FAFB; }
+      .message-markdown tbody tr:last-child td{ border-bottom:none; }
+      .message-markdown thead th:first-child{ border-top-left-radius:12px; }
+      .message-markdown thead th:last-child{ border-top-right-radius:12px; }
+      .message-markdown tbody tr:last-child td:first-child{ border-bottom-left-radius:12px; }
+      .message-markdown tbody tr:last-child td:last-child{ border-bottom-right-radius:12px; }
+
+      /* ---- 标签与重点数据 ---- */
+      .tpa-tag{
+        display:inline-flex; align-items:center; padding:1px 8px; margin:0 2px;
+        border-radius:999px; font-size:.72rem; font-weight:600; line-height:1.7;
+        white-space:nowrap; vertical-align:baseline;
+      }
+      .tpa-tag-blue{ background:#EFF6FF; color:#1D4ED8; box-shadow:inset 0 0 0 1px #DBEAFE; }
+      .tpa-tag-green{ background:#ECFDF5; color:#047857; box-shadow:inset 0 0 0 1px #D1FAE5; }
+      .message-markdown .tpa-highlight{ color:var(--tpa-primary-dark); font-weight:600; white-space:nowrap; }
+
+      /* ---- 底部输入框 ---- */
+      .message-input .q-field__control { background-color:#FFFFFF !important; }
+      .message-input .q-field__control:before { border:1px solid #E5E5E5; }
+      .message-input.q-field--focused .q-field__control:after { border-color:#A3A39C; }
+      /* Quasar 的 .bg-primary 在 quasar_importants 层里用了 !important，
+         这里放进更早的 overrides 层并同样加 !important 才能覆盖 */
+      @layer overrides {
+        .send-button { background:#B54933 !important; color:#FFFFFF !important; }
+        .send-button:hover { background:#9C3E2B !important; }
+      }
+
+      /* 代码块限制在消息卡片内，超长内容在块内横向滚动 */
+      .message-markdown pre { max-width:100%; overflow-x:auto; }
+      .message-markdown pre code { white-space:pre; background:transparent; padding:0; }
     </style>
     """)
-    with ui.header().classes("items-center justify-between bg-white text-slate-800 shadow-sm"):
+    with ui.header().classes("chat-header items-center justify-between bg-white text-slate-800 shadow-sm"):
         with ui.row().classes("items-center gap-2"):
-            ui.icon("travel_explore", size="sm").classes("text-indigo-600")
+            ui.button(icon="menu", on_click=lambda: drawer.toggle()).props("flat round dense").classes("text-slate-600")
+            ui.icon("travel_explore", size="sm").classes("text-blue-500")
             ui.label("出行计划助手").classes("text-lg font-bold")
         with ui.row().classes("items-center gap-3"):
             ui.label(user.get("username", "用户")).classes("text-sm text-slate-500")
@@ -73,26 +170,28 @@ async def chat_page(conversation_id: Optional[str] = None) -> None:
                 ui.navigate.to("/login")
             ui.button("退出", icon="logout", on_click=logout).props("flat dense")
 
-    with ui.row().classes("w-full items-stretch gap-0"):
-        with ui.column().classes("hidden h-[calc(100vh-64px)] w-72 shrink-0 overflow-y-auto border-r border-slate-200 bg-white p-4 md:flex"):
+    # value=None：宽屏（>=1024px）自动展开，窄屏收起，菜单按钮可切换
+    with ui.left_drawer(value=None, bordered=True).classes("bg-white") as drawer:
+        with ui.column().classes("h-full w-full gap-2 p-3"):
             await render_conversation_list(conversation_id)
 
-        with ui.column().classes("relative h-[calc(100vh-64px)] min-w-0 flex-1"):
-            connection_banner = ui.label("").classes("hidden w-full bg-amber-100 px-4 py-2 text-sm text-amber-900")
-            thinking_bar = ui.label("").classes("hidden w-full px-6 py-2 text-sm text-indigo-700")
-            with ui.scroll_area().classes("chat-scroll w-full flex-1"):
-                message_area = ui.column().classes("mx-auto w-full max-w-4xl gap-4 px-4 py-6")
-            with ui.column().classes("w-full border-t border-slate-200 bg-white px-4 py-4"):
-                if not conversation_id:
-                    with ui.column().classes("mx-auto w-full max-w-3xl items-center py-8 text-center"):
-                        ui.label("把目的地、日期、人数和预算告诉我").classes("text-2xl font-bold")
-                        ui.label("我会结合天气、地点和路线，帮你整理一份可执行的计划。").classes("text-slate-500")
-                        with ui.row().classes("mt-3 flex-wrap justify-center"):
-                            for suggestion in SUGGESTIONS:
-                                ui.button(suggestion, on_click=lambda s=suggestion: text_input.set_value(s)).props("outline no-caps").classes("text-xs")
-                with ui.row().classes("mx-auto w-full max-w-4xl items-end gap-2"):
-                    text_input = ui.textarea(placeholder="说说你想去哪里、什么时候出发…").classes("message-input flex-1").props("autogrow outlined")
-                    send_button = ui.button("发送", icon="send").props("unelevated")
+    ui.query(".nicegui-content").classes("p-0")
+    with ui.column().classes("chat-main relative h-[calc(100vh-66px)] w-full min-w-0"):
+        connection_banner = ui.label("").classes("hidden w-full bg-amber-100 px-4 py-2 text-sm text-amber-900")
+        thinking_bar = ui.label("").classes("hidden w-full px-6 py-2 text-sm text-blue-700")
+        with ui.scroll_area().classes("chat-scroll w-full flex-1"):
+            message_area = ui.column().classes("mx-auto w-full max-w-4xl gap-4 px-4 py-6")
+        with ui.column().classes("chat-composer w-full border-t border-slate-200 px-4 py-4"):
+            if not conversation_id:
+                with ui.column().classes("mx-auto w-full max-w-3xl items-center py-8 text-center"):
+                    ui.label("把目的地、日期、人数和预算告诉我").classes("text-2xl font-bold")
+                    ui.label("我会结合天气、地点和路线，帮你整理一份可执行的计划。").classes("text-slate-500")
+                    with ui.row().classes("mt-3 flex-wrap justify-center"):
+                        for suggestion in SUGGESTIONS:
+                            ui.button(suggestion, on_click=lambda s=suggestion: text_input.set_value(s)).props("outline no-caps").classes("text-xs")
+            with ui.row().classes("mx-auto w-full max-w-4xl items-end gap-2"):
+                text_input = ui.textarea(placeholder="说说你想去哪里、什么时候出发…").classes("message-input flex-1").props("autogrow outlined")
+                send_button = ui.button("发送", icon="send").props("unelevated").classes("send-button")
 
     messages: list[dict[str, Any]] = []
     if conversation_id:

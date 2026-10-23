@@ -37,7 +37,7 @@ async def render_conversation_list(current_id: str | None) -> None:
             conversation_id = str(conversation.get("id", ""))
             with ui.card().classes(
                 "w-full cursor-pointer p-3 "
-                + ("border-indigo-400 bg-indigo-50" if conversation_id == current_id else "hover:bg-slate-50")
+                + ("border-blue-400 bg-blue-50" if conversation_id == current_id else "hover:bg-slate-50")
             ).on("click", lambda _, cid=conversation_id: ui.navigate.to(f"/chat/{cid}")):
                 with ui.row().classes("w-full items-center justify-between"):
                     ui.label(conversation.get("title") or "新对话").classes("font-medium")

@@ -19,7 +19,9 @@ class ApiError(Exception):
 
 class ApiClient:
     def __init__(self, base_url: str = BACKEND_BASE_URL) -> None:
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=90)
+        # 只访问本机后端，忽略系统代理（Windows 代理开着但没启动时，
+        # httpx 会把 127.0.0.1 也发给代理，导致“无法连接服务器”）。
+        self._client = httpx.AsyncClient(base_url=base_url, timeout=90, trust_env=False)
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         url = path if path.startswith("http") else f"{API_PREFIX}{path}"
